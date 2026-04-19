@@ -107,7 +107,9 @@ async function forwardToStdioService(req, res, service, spawnImpl) {
     res.end(
       JSON.stringify({
         error: "Upstream stdio MCP failed",
-        details: stderr || `exit code: ${child.exitCode}`
+        details:
+          stderr ||
+          `Stdio MCP process failed with exit code ${child.exitCode}`
       })
     );
     return;

@@ -19,7 +19,11 @@ export function loadDotEnv(dotEnvPath) {
       continue;
     }
     const key = trimmed.slice(0, separator).trim();
-    const value = trimmed.slice(separator + 1).trim().replace(/^['"]|['"]$/g, "");
+    const rawValue = trimmed.slice(separator + 1).trim();
+    const hasMatchingQuotes =
+      (rawValue.startsWith('"') && rawValue.endsWith('"')) ||
+      (rawValue.startsWith("'") && rawValue.endsWith("'"));
+    const value = hasMatchingQuotes ? rawValue.slice(1, -1) : rawValue;
     entries[key] = value;
   }
   return entries;

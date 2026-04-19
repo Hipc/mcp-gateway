@@ -81,6 +81,14 @@ test("web mcp service is proxied via /mcp/:name", async (t) => {
 });
 
 test("stdio mcp service can be called through /mcp/:name", async (t) => {
+  const stdioEchoScript = [
+    "let d='';",
+    "process.stdin.on('data', c => d += c);",
+    "process.stdin.on('end', () => {",
+    "  process.stdout.write(JSON.stringify({ echo: JSON.parse(d) }));",
+    "});"
+  ].join(" ");
+
   const gateway = createServer(
     createGatewayHandler({
       services: new Map([
@@ -90,7 +98,7 @@ test("stdio mcp service can be called through /mcp/:name", async (t) => {
             command: process.execPath,
             args: [
               "-e",
-              "let d='';process.stdin.on('data',c=>d+=c);process.stdin.on('end',()=>process.stdout.write(JSON.stringify({echo:JSON.parse(d)})));"
+              stdioEchoScript
             ]
           }
         ]
