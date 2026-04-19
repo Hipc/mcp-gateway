@@ -1,0 +1,11 @@
+node_modules/
+dist/
+*.log
+*.tmp
+*.bak
+*.swp
+.DS_Store
+.idea/
+.vscode/
+*.env
+mcp.json

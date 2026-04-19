@@ -61,9 +61,9 @@ async function forwardToWebService(req, res, service, fetchImpl) {
     method: req.method,
     headers: {
       "content-type": req.headers["content-type"] || "application/json",
-      ...service.headers
+      ...service.headers,
     },
-    body: body.length > 0 ? body : undefined
+    body: body.length > 0 ? body : undefined,
   });
 
   const responseBuffer = Buffer.from(await response.arrayBuffer());
@@ -87,7 +87,8 @@ async function forwardToStdioService(req, res, service, spawnImpl) {
   const child = spawnImpl(command, args, {
     cwd: service.cwd,
     env: { ...process.env, ...(service.env || {}) },
-    stdio: "pipe"
+    stdio: "pipe",
+    shell: process.platform === "win32",
   });
 
   const stdoutChunks = [];
@@ -108,9 +109,8 @@ async function forwardToStdioService(req, res, service, spawnImpl) {
       JSON.stringify({
         error: "Upstream stdio MCP failed",
         details:
-          stderr ||
-          `Stdio MCP process failed with exit code ${child.exitCode}`
-      })
+          stderr || `Stdio MCP process failed with exit code ${child.exitCode}`,
+      }),
     );
     return;
   }
@@ -126,7 +126,7 @@ export function createGatewayHandler({
   services,
   authorizationToken = "",
   spawnImpl = spawn,
-  fetchImpl = fetch
+  fetchImpl = fetch,
 }) {
   return async function gatewayHandler(req, res) {
     try {
