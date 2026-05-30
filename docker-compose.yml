@@ -1,0 +1,19 @@
+services:
+  mcp-gateway:
+    # 从当前目录的 Dockerfile 构建镜像
+    build: .
+    # 镜像名称
+    image: mcp-gateway:latest
+    # 容器名称
+    container_name: mcp-gateway
+    # 失败后自动重启
+    restart: unless-stopped
+    ports:
+      # 端口从 .env 中读取，内外端口保持一致
+      - "${PORT}:${PORT}"
+    volumes:
+      # 将 mcp.json 配置文件挂载到容器内，方便在宿主机编辑
+      # 注意：不设为只读，因为管理 API 需要写入配置
+      - ./mcp.json:/app/config/mcp.json
+      # 将 .env 文件挂载进去（容器内 index.js 会读取）
+      - ./.env:/app/.env:ro
