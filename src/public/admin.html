@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MCP Gateway Admin</title>
+    <!-- JSON Editor 基于 Ace Editor，提供专业的 JSON 编辑体验 -->
+    <script src="https://cdn.jsdelivr.net/npm/jsoneditor@10/dist/jsoneditor.min.js"></script>
+    <link
+      rel="stylesheet"
+      href="https://cdn.jsdelivr.net/npm/jsoneditor@10/dist/jsoneditor.min.css"
+    />
+    <style>
+      :root {
+        --bg: #0f111a;
+        --surface: #1a1d2e;
+        --surface-hover: #242840;
+        --border: #2e3348;
+        --text: #e0e0e8;
+        --text-dim: #8b8fa3;
+        --accent: #6c8cff;
+        --accent-hover: #8aa4ff;
+        --danger: #ff5c72;
+        --danger-hover: #ff7e90;
+        --success: #4cd964;
+        --warning: #ffcc00;
+        --radius: 8px;
+      }
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+      }
+
+      /* ── Header ───────────────────────────────── */
+      .header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 24px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .header h1 {
+        font-size: 18px;
+        font-weight: 600;
+      }
+      .header .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      /* ── Buttons ──────────────────────────────── */
+      .btn {
+        padding: 8px 16px;
+        border: none;
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 500;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          opacity 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: #fff;
+      }
+      .btn-primary:hover:not(:disabled) {
+        background: var(--accent-hover);
+      }
+      .btn-danger {
+        background: var(--danger);
+        color: #fff;
+      }
+      .btn-danger:hover:not(:disabled) {
+        background: var(--danger-hover);
+      }
+      .btn-ghost {
+        background: transparent;
+        color: var(--text-dim);
+        border: 1px solid var(--border);
+      }
+      .btn-ghost:hover:not(:disabled) {
+        background: var(--surface-hover);
+        color: var(--text);
+      }
+
+      /* ── Layout ───────────────────────────────── */
+      .main {
+        display: grid;
+        grid-template-columns: 320px 1fr;
+        height: calc(100vh - 57px);
+      }
+
+      /* ── Sidebar ──────────────────────────────── */
+      .sidebar {
+        border-right: 1px solid var(--border);
+        background: var(--surface);
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+      }
+      .sidebar-title {
+        padding: 12px 16px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+      }
+
+      .service-list {
+        flex: 1;
+        overflow-y: auto;
+      }
+
+      .service-item {
+        padding: 12px 16px;
+        cursor: pointer;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.12s;
+      }
+      .service-item:hover {
+        background: var(--surface-hover);
+      }
+      .service-item.active {
+        background: var(--surface-hover);
+        border-left: 3px solid var(--accent);
+      }
+      .service-item .name {
+        font-size: 14px;
+        font-weight: 500;
+        margin-bottom: 4px;
+      }
+      .service-item .type {
+        font-size: 11px;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-weight: 500;
+      }
+      .type-stdio {
+        background: #1e3a5f;
+        color: #6cb4ff;
+      }
+      .type-url {
+        background: #2e1e4a;
+        color: #b58cff;
+      }
+
+      /* ── Editor Panel ─────────────────────────── */
+      .editor-panel {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+      }
+      .editor-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 16px;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface);
+      }
+      .editor-toolbar .title {
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .editor-toolbar .actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      #jsoneditor {
+        flex: 1;
+        overflow: hidden;
+      }
+
+      /* 覆盖 jsoneditor 深色主题适配 */
+      .jsoneditor {
+        border: none !important;
+        background: var(--bg) !important;
+      }
+      .ace_editor {
+        font-size: 13px !important;
+      }
+
+      /* ── Empty State ──────────────────────────── */
+      .empty-state {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100%;
+        color: var(--text-dim);
+      }
+      .empty-state .icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+      .empty-state p {
+        font-size: 14px;
+      }
+
+      /* ── Toast ────────────────────────────────── */
+      .toast-container {
+        position: fixed;
+        bottom: 24px;
+        right: 24px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .toast {
+        padding: 10px 20px;
+        border-radius: var(--radius);
+        font-size: 13px;
+        font-weight: 500;
+        color: #fff;
+        animation: slideIn 0.25s ease;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .toast-success {
+        background: #1a7a34;
+      }
+      .toast-error {
+        background: #a01530;
+      }
+      .toast-info {
+        background: #2a4a8a;
+      }
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      /* ── Modal ────────────────────────────────── */
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.6);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.open {
+        display: flex;
+      }
+      .modal {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 24px;
+        width: 400px;
+        max-width: 90vw;
+      }
+      .modal h2 {
+        font-size: 16px;
+        margin-bottom: 16px;
+      }
+      .modal .field {
+        margin-bottom: 12px;
+      }
+      .modal label {
+        display: block;
+        font-size: 12px;
+        color: var(--text-dim);
+        margin-bottom: 4px;
+      }
+      .modal input,
+      .modal select {
+        width: 100%;
+        padding: 8px 12px;
+        border: 1px solid var(--border);
+        border-radius: var(--radius);
+        background: var(--bg);
+        color: var(--text);
+        font-size: 13px;
+        outline: none;
+      }
+      .modal input:focus,
+      .modal select:focus {
+        border-color: var(--accent);
+      }
+      .modal .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ───── Header ───── -->
+    <header class="header">
+      <h1>🚀 MCP Gateway Admin</h1>
+      <div class="actions">
+        <button class="btn btn-primary" onclick="openCreateModal()">
+          ＋ New Service
+        </button>
+        <button class="btn btn-ghost" onclick="loadServices()">
+          ↻ Refresh
+        </button>
+      </div>
+    </header>
+
+    <!-- ───── Main Layout ───── -->
+    <div class="main">
+      <!-- Sidebar: service list -->
+      <aside class="sidebar">
+        <div class="sidebar-title">Services</div>
+        <div class="service-list" id="serviceList"></div>
+      </aside>
+
+      <!-- Editor panel -->
+      <div class="editor-panel" id="editorPanel">
+        <div class="empty-state" id="emptyState">
+          <div class="icon">📋</div>
+          <p>Select a service from the sidebar to edit</p>
+        </div>
+
+        <div
+          id="editorArea"
+          style="display: none; flex: 1; flex-direction: column"
+        >
+          <div class="editor-toolbar">
+            <span class="title" id="editorTitle">—</span>
+            <div class="actions">
+              <button class="btn btn-primary" onclick="saveCurrentService()">
+                💾 Save
+              </button>
+              <button class="btn btn-danger" onclick="deleteCurrentService()">
+                🗑 Delete
+              </button>
+            </div>
+          </div>
+          <div id="jsoneditor"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── Create Modal ───── -->
+    <div class="modal-overlay" id="createModal">
+      <div class="modal">
+        <h2>Create New Service</h2>
+        <div class="field">
+          <label for="newName">Service Name</label>
+          <input id="newName" type="text" placeholder="e.g. my-mcp-tool" />
+        </div>
+        <div class="field">
+          <label for="newType">Transport Type</label>
+          <select id="newType">
+            <option value="stdio">Stdio (command)</option>
+            <option value="url">Web (URL)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button class="btn btn-ghost" onclick="closeCreateModal()">
+            Cancel
+          </button>
+          <button class="btn btn-primary" onclick="createService()">
+            Create
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ───── Toast Container ───── -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+      /* ════════════════════════════════════════════
+       *  State
+       * ════════════════════════════════════════════ */
+      let servicesData = []; // 从 API 拉取的完整服务列表
+      let selectedName = null; // 当前选中的服务名称
+      let editor = null; // JSONEditor 实例
+
+      /* ════════════════════════════════════════════
+       *  Init
+       * ════════════════════════════════════════════ */
+      document.addEventListener("DOMContentLoaded", () => {
+        editor = new JSONEditor(document.getElementById("jsoneditor"), {
+          mode: "code",
+          mainMenuBar: false,
+          statusBar: true,
+        });
+        loadServices();
+      });
+
+      /* ════════════════════════════════════════════
+       *  API helpers
+       * ════════════════════════════════════════════ */
+      const API = "/api/services";
+
+      async function apiFetch(url, options = {}) {
+        const res = await fetch(url, {
+          headers: { "Content-Type": "application/json", ...options.headers },
+          ...options,
+        });
+        // 204 No Content 直接返回
+        if (res.status === 204) return { ok: true, status: 204 };
+        const body = await res.json().catch(() => ({}));
+        return { ok: res.ok, status: res.status, body };
+      }
+
+      /* ════════════════════════════════════════════
+       *  Load & Render Service List
+       * ════════════════════════════════════════════ */
+
+      /** 从 API 加载所有服务并渲染侧边栏列表 */
+      async function loadServices() {
+        const { ok, body } = await apiFetch(API);
+        if (!ok) {
+          toast(
+            "Failed to load services: " + (body.error || "Unknown"),
+            "error",
+          );
+          return;
+        }
+        servicesData = body;
+        renderSidebar();
+      }
+
+      /** 渲染侧边栏的服务列表 */
+      function renderSidebar() {
+        const list = document.getElementById("serviceList");
+        // 如果无服务数据，显示空提示
+        if (servicesData.length === 0) {
+          list.innerHTML = `
+          <div style="padding:24px; text-align:center; color:var(--text-dim);">
+            <p>No services configured</p>
+            <p style="margin-top:8px; font-size:12px;">Click "＋ New Service" to add one</p>
+          </div>`;
+          return;
+        }
+
+        // 逐个渲染服务条目
+        list.innerHTML = servicesData
+          .map((svc) => {
+            const isActive = svc.name === selectedName ? "active" : "";
+            // 判断传输类型：有 command 为 stdio，有 url 为 url
+            const type = svc.command ? "stdio" : "url";
+            const typeClass = type === "stdio" ? "type-stdio" : "type-url";
+            const displayInfo =
+              type === "stdio"
+                ? `${svc.command} ${(svc.args || []).join(" ")}`
+                : svc.url;
+            return `
+          <div class="service-item ${isActive}" onclick="selectService('${escapeAttr(svc.name)}')">
+            <div class="name">${escapeHtml(svc.name)}</div>
+            <span class="type ${typeClass}">${type.toUpperCase()}</span>
+            <span style="font-size:11px; color:var(--text-dim); margin-left:8px;" title="${escapeAttr(displayInfo || "")}">${escapeHtml(truncate(displayInfo || "", 30))}</span>
+          </div>`;
+          })
+          .join("");
+      }
+
+      /* ════════════════════════════════════════════
+       *  Select & Edit Service
+       * ════════════════════════════════════════════ */
+
+      /** 选中一个服务，在编辑器中显示其配置 */
+      async function selectService(name) {
+        selectedName = name;
+        renderSidebar();
+
+        // 获取单个服务的最新配置
+        const { ok, body } = await apiFetch(
+          `${API}/${encodeURIComponent(name)}`,
+        );
+        if (!ok) {
+          toast(
+            "Failed to load service: " + (body.error || "Unknown"),
+            "error",
+          );
+          return;
+        }
+
+        // 构建编辑数据：去除 name 字段，只编辑配置内容
+        const editData = { ...body };
+        delete editData.name;
+
+        // 显示编辑区，隐藏空状态
+        document.getElementById("emptyState").style.display = "none";
+        const editorArea = document.getElementById("editorArea");
+        editorArea.style.display = "flex";
+        document.getElementById("editorTitle").textContent = name;
+        // 将配置设置到 JSONEditor
+        editor.set(editData);
+      }
+
+      /* ════════════════════════════════════════════
+       *  Save (PUT)
+       * ════════════════════════════════════════════ */
+
+      /** 保存当前选中服务的编辑配置 */
+      async function saveCurrentService() {
+        if (!selectedName) return;
+        // 从编辑器获取当前 JSON 内容
+        let updated;
+        try {
+          updated = editor.get();
+        } catch {
+          toast("Invalid JSON — please fix syntax errors first", "error");
+          return;
+        }
+
+        // 发送 PUT 请求更新服务
+        const { ok, body } = await apiFetch(
+          `${API}/${encodeURIComponent(selectedName)}`,
+          { method: "PUT", body: JSON.stringify(updated) },
+        );
+        if (!ok) {
+          toast("Save failed: " + (body.error || "Unknown"), "error");
+          return;
+        }
+        toast("Service updated", "success");
+        // 刷新列表以反映变更
+        await loadServices();
+      }
+
+      /* ════════════════════════════════════════════
+       *  Delete (DELETE)
+       * ════════════════════════════════════════════ */
+
+      /** 删除当前选中的服务 */
+      async function deleteCurrentService() {
+        if (!selectedName) return;
+        // 二次确认
+        if (!confirm(`Delete service "${selectedName}"?`)) return;
+
+        const { ok, body } = await apiFetch(
+          `${API}/${encodeURIComponent(selectedName)}`,
+          { method: "DELETE" },
+        );
+        if (!ok) {
+          toast("Delete failed: " + (body.error || "Unknown"), "error");
+          return;
+        }
+        toast("Service deleted", "success");
+        // 清空选中状态
+        selectedName = null;
+        document.getElementById("editorArea").style.display = "none";
+        document.getElementById("emptyState").style.display = "flex";
+        await loadServices();
+      }
+
+      /* ════════════════════════════════════════════
+       *  Create (POST)
+       * ════════════════════════════════════════════ */
+
+      /** 打开创建服务的模态框 */
+      function openCreateModal() {
+        document.getElementById("createModal").classList.add("open");
+        document.getElementById("newName").value = "";
+        document.getElementById("newName").focus();
+      }
+
+      /** 关闭创建服务的模态框 */
+      function closeCreateModal() {
+        document.getElementById("createModal").classList.remove("open");
+      }
+
+      /** 根据模态框输入创建新服务 */
+      async function createService() {
+        const name = document.getElementById("newName").value.trim();
+        const type = document.getElementById("newType").value;
+
+        if (!name) {
+          toast("Service name is required", "error");
+          return;
+        }
+
+        // 根据传输类型构建初始配置模板
+        const config = { name };
+        if (type === "stdio") {
+          config.command = "";
+          config.args = [];
+        } else {
+          config.url = "";
+        }
+
+        const { ok, body } = await apiFetch(API, {
+          method: "POST",
+          body: JSON.stringify(config),
+        });
+        if (!ok) {
+          toast("Create failed: " + (body.error || "Unknown"), "error");
+          return;
+        }
+
+        toast("Service created", "success");
+        closeCreateModal();
+        await loadServices();
+        // 自动选中新创建的服务
+        selectService(name);
+      }
+
+      /* ════════════════════════════════════════════
+       *  Toast Notifications
+       * ════════════════════════════════════════════ */
+
+      /** 显示一个短暂的 Toast 消息 */
+      function toast(message, type = "info") {
+        const container = document.getElementById("toastContainer");
+        const el = document.createElement("div");
+        el.className = `toast toast-${type}`;
+        el.textContent = message;
+        container.appendChild(el);
+        // 3 秒后自动移除
+        setTimeout(() => el.remove(), 3000);
+      }
+
+      /* ════════════════════════════════════════════
+       *  Utility
+       * ════════════════════════════════════════════ */
+
+      /** 转义 HTML 特殊字符，防止 XSS */
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+      }
+
+      /** 转义 HTML 属性值中的特殊字符 */
+      function escapeAttr(str) {
+        return str.replace(/'/g, "&#39;").replace(/"/g, "&quot;");
+      }
+
+      /** 截断字符串到指定长度，超出部分用省略号代替 */
+      function truncate(str, len) {
+        return str.length > len ? str.slice(0, len) + "…" : str;
+      }
+    </script>
+  </body>
+</html>
