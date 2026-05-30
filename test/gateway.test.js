@@ -11,7 +11,7 @@ async function listen(server) {
 
 test("normalizeMcpConfig supports object and array format", () => {
   const objectMap = normalizeMcpConfig({
-    mcps: {
+    mcpServers: {
       local: { command: "node", args: ["-v"] }
     }
   });

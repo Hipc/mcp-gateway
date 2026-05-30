@@ -36,7 +36,7 @@ MCP_CONFIG=./mcp.json
 
 ```json
 {
-  "mcps": {
+  "mcpServers": {
     "local-stdio": {
       "command": "node",
       "args": ["./local-mcp-server.js"]
