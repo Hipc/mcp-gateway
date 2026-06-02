@@ -589,13 +589,18 @@ test("web mcp service is proxied via /mcp/:name", async (t) => {
 });
 
 test("stdio mcp service can be called through /mcp/:name", async (t) => {
+  // 行式 echo 脚本：逐行读取 stdin 并即时响应（模拟真实 MCP 服务器行为）
   const stdioEchoScript = [
-    "let d='';",
-    "process.stdin.on('data', c => d += c);",
-    "process.stdin.on('end', () => {",
-    "  process.stdout.write(JSON.stringify({ echo: JSON.parse(d) }));",
+    "let buf='';",
+    "process.stdin.on('data',c=>{",
+    "  buf+=c.toString();",
+    "  const lines=buf.split('\\n');",
+    "  buf=lines.pop();",
+    "  lines.forEach(l=>{",
+    "    if(l.trim())process.stdout.write(JSON.stringify({echo:JSON.parse(l)})+'\\n');",
+    "  });",
     "});",
-  ].join(" ");
+  ].join("");
 
   const gateway = createServer(
     createGatewayHandler({

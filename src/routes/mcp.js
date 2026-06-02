@@ -5,14 +5,15 @@
  * - URL 类型服务 → 转发到上游 Web 服务
  * - Stdio 类型服务（GET）→ 建立 SSE 长连接
  * - Stdio 类型服务（POST + sessionId）→ 发送消息到已有 SSE 会话
- * - Stdio 类型服务（POST 无 sessionId）→ 一次性 spawn 转发
+ * - Stdio 类型服务（POST 无 sessionId）→ 持久化进程池转发
  */
 
 import { Router } from "express";
 import { jsonNotFound } from "../utils/response.js";
 import { forwardToWebService } from "../transport/web.js";
-import { forwardToStdioService } from "../transport/stdio.js";
+import { StdioProcessPool } from "../transport/persistent-stdio.js";
 import { startSseSession, sendSseMessage } from "../transport/sse.js";
+import { parseJsonSafely } from "../utils/helpers.js";
 import { spawn } from "node:child_process";
 
 /**
@@ -34,6 +35,8 @@ export function createMcpRouter({
   fetchImpl = fetch,
 }) {
   const router = Router();
+  // 持久化 stdio 进程池，用于处理无 sessionId 的 POST 请求
+  const stdioPool = new StdioProcessPool(spawnImpl);
 
   // GET /mcp/:name — 对 stdio 服务启动 SSE 长连接，对 web 服务直接转发 GET 请求
   router.get("/:name", (req, res) => {
@@ -82,9 +85,41 @@ export function createMcpRouter({
       return;
     }
 
-    // Stdio 一次性模式：spawn 子进程处理请求后立即返回
-    await forwardToStdioService(req, res, service, spawnImpl);
+    // 持久化 stdio 模式：通过进程池发送请求，保持子进程活跃
+    try {
+      const body = await readRequestBody(req);
+      const message = parseJsonSafely(body.toString("utf8"), null);
+      if (!message) {
+        res.status(400).json({ error: "Invalid JSON-RPC request" });
+        return;
+      }
+      const response = await stdioPool.send(service, message);
+      if (response === null) {
+        // 通知类消息（无 id），无需返回响应体
+        res.status(202).end();
+      } else {
+        res.json(response);
+      }
+    } catch (err) {
+      res.status(502).json({ error: err?.message || "Stdio MCP request failed" });
+    }
   });
 
   return router;
+}
+
+/**
+ * 从可读流中读取完整的请求体数据。
+ * 返回 Promise，在流结束时 resolve 为拼接后的 Buffer。
+ *
+ * @param {import("stream").Readable} req - 可读流（Express Request 对象）
+ * @returns {Promise<Buffer>} 完整的请求体 Buffer
+ */
+function readRequestBody(req) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    req.on("data", (chunk) => chunks.push(chunk));
+    req.on("end", () => resolve(Buffer.concat(chunks)));
+    req.on("error", reject);
+  });
 }
