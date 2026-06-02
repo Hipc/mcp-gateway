@@ -14,6 +14,7 @@
  * @param {import("express").Response} res        - Express 响应对象
  * @param {object}                     service    - MCP 服务配置对象
  * @param {string}                     service.url - 上游 MCP 服务 URL
+ * @param {string}                     [service.name] - 服务名称（用于日志）
  * @param {object}                     [service.headers] - 额外追加到上游请求的 headers
  * @param {Function}                   [fetchImpl=fetch] - 自定义 fetch 函数（用于测试注入 mock）
  */
@@ -23,21 +24,37 @@ export async function forwardToWebService(
   service,
   fetchImpl = fetch,
 ) {
+  const name = service.name || service.url;
   // 读取客户端发送的原始请求体
   const body = await readRequestBody(req);
-  // 使用 fetch 向上游服务发起请求
-  const response = await fetchImpl(service.url, {
-    // 透传客户端的 HTTP 方法
-    method: req.method,
-    headers: {
-      // 保留客户端的 content-type，默认 application/json
-      "content-type": req.headers["content-type"] || "application/json",
-      // 合并服务配置中自定义的 headers
-      ...service.headers,
-    },
-    // 只在有请求体时附带 body
-    body: body.length > 0 ? body : undefined,
-  });
+
+  let response;
+  try {
+    // 使用 fetch 向上游服务发起请求
+    response = await fetchImpl(service.url, {
+      // 透传客户端的 HTTP 方法
+      method: req.method,
+      headers: {
+        // 保留客户端的 content-type，默认 application/json
+        "content-type": req.headers["content-type"] || "application/json",
+        // 合并服务配置中自定义的 headers
+        ...service.headers,
+      },
+      // 只在有请求体时附带 body
+      body: body.length > 0 ? body : undefined,
+    });
+  } catch (err) {
+    // eslint-disable-next-line no-console
+    console.error(`[${name}] 上游请求失败: ${err.message}`);
+    res.status(502).json({ error: `Upstream request failed: ${err.message}` });
+    return;
+  }
+
+  // 上游返回非 2xx 时记录日志
+  if (!response.ok) {
+    // eslint-disable-next-line no-console
+    console.error(`[${name}] 上游返回 ${response.status}`);
+  }
 
   // 将上游响应体读取为 Buffer
   const responseBuffer = Buffer.from(await response.arrayBuffer());

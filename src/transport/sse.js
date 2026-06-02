@@ -74,6 +74,8 @@ export function startSseSession(
 
   // 监听子进程启动失败事件（如命令不存在）
   child.on("error", (error) => {
+    // eslint-disable-next-line no-console
+    console.error(`[${service.name}] SSE 子进程启动失败: ${error.message}`);
     // 从连接表中移除该会话
     sseConnections.delete(sessionId);
     // 如果还未发送响应头，返回 502 错误
@@ -118,11 +120,16 @@ export function startSseSession(
     }
   });
 
-  // 忽略 stderr 输出（防止 stderr 缓冲区满导致子进程阻塞）
-  child.stderr.on("data", () => {});
+  // 打印 stderr 输出，方便排查 MCP 子进程错误
+  child.stderr.on("data", (chunk) => {
+    // eslint-disable-next-line no-console
+    console.error(`[${service.name}] SSE stderr: ${chunk.toString("utf8").trim()}`);
+  });
 
   // 子进程退出时清理会话
-  child.on("close", () => {
+  child.on("close", (code) => {
+    // eslint-disable-next-line no-console
+    console.error(`[${service.name}] SSE 子进程退出, code=${code}`);
     // 从连接表中移除该会话
     sseConnections.delete(sessionId);
     // 如果 SSE 流尚未关闭，则关闭之
@@ -171,6 +178,8 @@ export async function sendSseMessage(req, res, sessionId, sseConnections) {
   const session = sseConnections.get(sessionId);
   // 会话不存在则返回 404
   if (!session) {
+    // eslint-disable-next-line no-console
+    console.error(`[?] SSE 会话不存在: ${sessionId}`);
     res.status(404).json({ error: "Session not found" });
     return;
   }

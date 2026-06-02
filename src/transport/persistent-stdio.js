@@ -73,11 +73,20 @@ export class StdioProcessPool {
       return new Promise((resolve, reject) => {
         const timer = setTimeout(() => {
           entry.pending.delete(message.id);
+          // eslint-disable-next-line no-console
+          console.error(`[${name}] 请求超时 (id=${message.id})`);
           reject(new Error(`MCP request timeout (id=${message.id})`));
         }, timeoutMs);
 
         entry.pending.set(message.id, (response) => {
           clearTimeout(timer);
+          // 记录 JSON-RPC 级别的错误响应
+          if (response && response.error) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `[${name}] MCP 响应错误: ${JSON.stringify(response.error)}`,
+            );
+          }
           resolve(response);
         });
 
@@ -95,6 +104,8 @@ export class StdioProcessPool {
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         entry.anyResponseCb = null;
+        // eslint-disable-next-line no-console
+        console.error(`[${name}] 响应超时`);
         reject(new Error("MCP response timeout"));
       }, timeoutMs);
 
@@ -197,14 +208,19 @@ export class StdioProcessPool {
       }
     });
 
-    // 清空 stderr 缓冲区，防止子进程因 stderr 满而阻塞
-    child.stderr.on("data", () => {});
+    // 打印 stderr 输出，方便排查 MCP 子进程错误
+    child.stderr.on("data", (chunk) => {
+      // eslint-disable-next-line no-console
+      console.error(`[${service.name}] stderr: ${chunk.toString("utf8").trim()}`);
+    });
 
     // 允许父进程在持久子进程仍运行时正常退出
     child.unref();
 
     // 子进程退出或出错时的清理逻辑
-    const cleanup = () => {
+    const cleanup = (eventName, detail) => {
+      // eslint-disable-next-line no-console
+      console.error(`[${service.name}] 子进程${eventName}: ${detail || "unknown"}`);
       this.processes.delete(service.name);
       // 拒绝所有等待中的请求
       for (const callback of entry.pending.values()) {
@@ -217,8 +233,8 @@ export class StdioProcessPool {
       }
     };
 
-    child.on("close", cleanup);
-    child.on("error", cleanup);
+    child.on("close", (code) => cleanup("退出", `code=${code}`));
+    child.on("error", (err) => cleanup("启动失败", err.message));
 
     return entry;
   }

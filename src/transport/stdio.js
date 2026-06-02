@@ -79,6 +79,8 @@ export async function forwardToStdioService(
   await new Promise((resolve) => child.on("close", resolve));
   // 如果子进程启动失败（如命令未找到），返回 500 错误
   if (spawnError) {
+    // eslint-disable-next-line no-console
+    console.error(`[${service.name}] stdio 子进程启动失败: ${spawnError.message}`);
     jsonServerError(
       res,
       `Failed to start stdio MCP process: ${spawnError.message}`,
@@ -92,6 +94,10 @@ export async function forwardToStdioService(
 
   // 子进程非零退出码表示执行失败，返回 502 错误
   if (child.exitCode !== 0) {
+    // eslint-disable-next-line no-console
+    console.error(
+      `[${service.name}] stdio 子进程异常退出 (code=${child.exitCode}): ${stderr || "无 stderr 输出"}`,
+    );
     res.status(502).json({
       error: "Upstream stdio MCP failed",
       // 优先使用 stderr 内容作为错误详情

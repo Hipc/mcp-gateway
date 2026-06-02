@@ -101,6 +101,8 @@ export function createMcpRouter({
         res.json(response);
       }
     } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error(`[${name}] MCP 调用失败: ${err?.message}`);
       res.status(502).json({ error: err?.message || "Stdio MCP request failed" });
     }
   });
